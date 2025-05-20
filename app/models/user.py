@@ -16,7 +16,7 @@ class User(db.Model, UserMixin):
     is_active = db.Column(db.Boolean, nullable=False, default=True)  # For account activation
 
     # Relationship with Document
-    # documents = db.relationship('Document', back_populates='user', lazy=True)
+    documents = db.relationship('Document', back_populates='user', lazy=True)
 
     def set_password(self, password):
         self.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')

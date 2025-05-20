@@ -1,0 +1,30 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<h1>Audit Logs</h1>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Timestamp</th>
+            <th>User</th>
+            <th>Action</th>
+            <th>IP Address</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in logs %}
+        <tr>
+            <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+            <td>{{ log.user.username if log.user else 'Anonymous' }}</td>
+            <td>{{ log.action }}</td>
+            <td>{{ log.ip_address }}</td>
+            <td>{{ log.details }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="5">No logs found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

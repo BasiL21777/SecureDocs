@@ -1,0 +1,32 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<h1>Manage Documents</h1>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Owner</th>
+            <th>Upload Date</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for doc in documents %}
+        <tr>
+            <td>{{ doc.name }}</td>
+            <td>{{ doc.user.username }}</td>
+            <td>{{ doc.date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+            <td>
+                <form action="{{ url_for('admin.delete_document', id=doc.id) }}" method="POST" style="display:inline;">
+                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="4">No documents found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

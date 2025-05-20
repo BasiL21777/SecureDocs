@@ -1,7 +1,6 @@
 from app import db
 from datetime import datetime
 
-
 class Document(db.Model):
     __tablename__ = 'documents'
 
@@ -14,7 +13,7 @@ class Document(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)  # Foreign key to User
 
     # Relationship to User
-    # user = db.relationship('User', back_populates='documents')
+    user = db.relationship('User', back_populates='documents')
 
     def __repr__(self):
         return f"<Document {self.name}>"
