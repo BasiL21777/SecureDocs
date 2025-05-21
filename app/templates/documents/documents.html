@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}SecureDocs - My Documents{% endblock %}
+{% block content %}
+    <h1 class="h3 mb-4">My Documents</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Upload Form -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Upload Document</h5>
+        </div>
+        <div class="card-body">
+            <form id="uploadForm" enctype="multipart/form-data" action="{{ url_for('documents.documents') }}" method="post">
+                <div class="mb-3">
+                    <label class="form-label">File</label>
+                    <input type="file" class="form-control" name="document" accept=".pdf,.docx,.txt" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Upload</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Document List -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Size</th>
+                            <th>Last Modified</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in documents %}
+                            <tr>
+                                <td>{{ doc.name | e }}</td>
+                                <td>{{ doc.type | e }}</td>
+                                <td>{{ doc.size | format_bytes }}</td>
+                                <td>{{ doc.modified | datetime_format }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('documents.download', id=doc.id) }}"
+                                           class="btn btn-outline-success">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                        <form action="{{ url_for('documents.delete', id=doc.id) }}" method="POST" style="display:inline;">
+                                            <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Are you sure you want to delete this document?')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="5">No documents found.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}

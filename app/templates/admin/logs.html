@@ -1,30 +1,34 @@
-{% extends "admin/base.html" %}
+{% extends "base.html" %}
+{% block title %}SecureDocs - System Logs{% endblock %}
 {% block content %}
-<h1>Audit Logs</h1>
-<table class="table">
-    <thead>
-        <tr>
-            <th>Timestamp</th>
-            <th>User</th>
-            <th>Action</th>
-            <th>IP Address</th>
-            <th>Details</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for log in logs %}
-        <tr>
-            <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-            <td>{{ log.user.username if log.user else 'Anonymous' }}</td>
-            <td>{{ log.action }}</td>
-            <td>{{ log.ip_address }}</td>
-            <td>{{ log.details }}</td>
-        </tr>
-        {% else %}
-        <tr>
-            <td colspan="5">No logs found.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <h1 class="h3 mb-4">System Logs</h1>
+    <div class="card p-4">
+        <h5>Recent Logs</h5>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>User ID</th>
+                    <th>Action</th>
+                    <th>Details</th>
+                    <th>IP Address</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                    <tr>
+                        <td>{{ log.timestamp | datetime_format }}</td>
+                        <td>{{ log.user_id }}</td>
+                        <td>{{ log.action | e }}</td>
+                        <td>{{ log.details | e }}</td>
+                        <td>{{ log.ip_address | e }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5">No logs found.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}

@@ -1,35 +1,94 @@
-{% extends "admin/base.html" %}
+{% extends "base.html" %}
+{% block title %}SecureDocs - User Management{% endblock %}
 {% block content %}
-<h1>Manage Users</h1>
-<table class="table">
-    <thead>
-        <tr>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Active</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for user in users %}
-        <tr>
-            <td>{{ user.username }}</td>
-            <td>{{ user.email }}</td>
-            <td>{{ user.role }}</td>
-            <td>{{ 'Yes' if user.is_active else 'No' }}</td>
-            <td>
-                <a href="{{ url_for('admin.edit_user', id=user.id) }}" class="btn btn-sm btn-primary">Edit</a>
-                <form action="{{ url_for('admin.delete_user', id=user.id) }}" method="POST" style="display:inline;">
-                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</button>
-                </form>
-            </td>
-        </tr>
-        {% else %}
-        <tr>
-            <td colspan="5">No users found.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <h1 class="h3 mb-4">User Management</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- User List -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                            <tr>
+                                <td>{{ user.id }}</td>
+                                <td>{{ user.username | e }}</td>
+                                <td>{{ user.email | e }}</td>
+                                <td>{{ user.role }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editUserModal-{{ user.id }}">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <form action="{{ url_for('admin.delete_user', id=user.id) }}" method="POST" style="display:inline;">
+                                            <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Are you sure you want to delete user {{ user.username }}?')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="5">No users found.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modals -->
+    {% for user in users %}
+    <div class="modal fade" id="editUserModal-{{ user.id }}" tabindex="-1" aria-labelledby="editUserModalLabel-{{ user.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editUserModalLabel-{{ user.id }}">Edit User: {{ user.username }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="{{ url_for('admin.edit_user', id=user.id) }}" method="post">
+                        <div class="mb-3">
+                            <label for="username-{{ user.id }}" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username-{{ user.id }}" name="username" value="{{ user.username }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email-{{ user.id }}" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email-{{ user.id }}" name="email" value="{{ user.email }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="role-{{ user.id }}" class="form-label">Role</label>
+                            <select class="form-select" id="role-{{ user.id }}" name="role">
+                                <option value="User" {% if user.role == 'User' %}selected{% endif %}>User</option>
+                                <option value="Admin" {% if user.role == 'Admin' %}selected{% endif %}>Admin</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
 {% endblock %}

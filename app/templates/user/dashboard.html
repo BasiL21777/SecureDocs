@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}SecureDocs - User Dashboard{% endblock %}
+{% block content %}
+    <h1 class="h3 mb-4">Welcome, {{ current_user.username | e }}!</h1>
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">My Documents</h5>
+                    <p class="card-text" id="myDocuments">{{ my_documents | number_format }}</p>
+                    <a href="{{ url_for('documents.documents') }}" class="btn btn-outline-primary btn-sm">View Documents</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Profile</h5>
+                    <p class="card-text">Update your profile and settings.</p>
+                    <a href="{{ url_for('user.profile') }}" class="btn btn-outline-primary btn-sm">Edit Profile</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="alert alert-info">Use the sidebar to upload, download, and manage your profile.</div>
+{% endblock %}

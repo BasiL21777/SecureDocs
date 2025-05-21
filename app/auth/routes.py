@@ -10,7 +10,7 @@ auth_bp = Blueprint('auth', __name__, template_folder='templates/auth')
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for('documents.upload'))
+        return redirect(url_for('documents.documents'))
     if request.method == 'POST':
         username = request.form.get('username')
         email = request.form.get('email')
@@ -29,7 +29,7 @@ def register():
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('documents.upload'))
+        return redirect(url_for('documents.documents'))
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -44,7 +44,7 @@ def login():
             ))
             db.session.commit()
             flash('Logged in successfully', 'success')
-            return redirect(url_for('documents.upload'))
+            return redirect(url_for('documents.documents'))
         else:
             db.session.add(AuditLog(
                 user_id=user.id if user else None,

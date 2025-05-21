@@ -1,0 +1,34 @@
+.sidebar {
+       background-color: #f8f9fa;
+       height: 100vh;
+       border-right: 1px solid #dee2e6;
+   }
+
+   .sidebar .nav-link {
+       color: #333;
+       padding: 10px 20px;
+   }
+
+   .sidebar .nav-link.active {
+       background-color: #e9ecef;
+       font-weight: bold;
+   }
+
+   .sidebar .nav-link:hover {
+       background-color: #dee2e6;
+   }
+
+   .profile-img {
+       width: 80px;
+       height: 80px;
+       border-radius: 50%;
+   }
+
+   .table-striped tbody tr:nth-of-type(odd) {
+       background-color: rgba(0, 0, 0, 0.05);
+   }
+
+   .card {
+       border-radius: 0.5rem;
+       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+   }
