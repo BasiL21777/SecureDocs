@@ -1,0 +1,35 @@
+CREATE DATABASE IF NOT EXISTS secure_docs;
+USE secure_docs;
+
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(64) UNIQUE NOT NULL,
+    email VARCHAR(120) UNIQUE NOT NULL,
+    password_hash VARCHAR(256),
+    role VARCHAR(20) DEFAULT 'User',
+    github_id VARCHAR(100) UNIQUE,
+    profile_image VARCHAR(256)
+);
+
+CREATE TABLE documents (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(256) NOT NULL,
+    HMAC_SHA256 VARCHAR(64) NOT NULL,
+    path VARCHAR(512) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    size INT NOT NULL,
+    modified DATETIME DEFAULT CURRENT_TIMESTAMP,
+    has_secret BOOLEAN DEFAULT TRUE,
+    user_id INT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE audit_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    action VARCHAR(100) NOT NULL,
+    timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    details TEXT,
+    ip_address VARCHAR(45),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);

@@ -1,6 +1,10 @@
-Flask==2.0.1
-Flask-SQLAlchemy==3.0.5
-python-dotenv==1.0.1
-bcrypt==4.2.0
-pycryptodome==3.20.0
-Flask-Login==0.6.3
+Flask
+Flask-SQLAlchemy
+python-dotenv
+bcrypt
+pycryptodome
+Flask-Login
+authlib
+requests
+flask-migrate
+mysql-connector-python

@@ -1,234 +1,223 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
+from flask import Blueprint, render_template, request, flash, redirect, url_for, send_file
 from flask_login import login_required, current_user
 from app import db
 from app.models.document import Document
 from app.models.audit_log import AuditLog
 import os
-import hashlib
-import hmac
 import base64
-from datetime import datetime
-from werkzeug.utils import secure_filename
+import hashlib
 from Crypto.Cipher import AES
-import io
-from flask import current_app
+from Crypto.Util.Padding import pad, unpad
+from Crypto.Random import get_random_bytes
+from werkzeug.utils import secure_filename
 
 documents_bp = Blueprint('documents', __name__)
+BASE_PATH = r'D:\Learn Flask\Final_DI\SecureDocs'
+UPLOAD_FOLDER = os.path.join(BASE_PATH, 'app', 'Uploads')
+STATIC_UPLOAD_FOLDER = os.path.join(BASE_PATH, 'app', 'static', 'uploads')
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx'}
 
-@documents_bp.route('/documents', methods=['GET', 'POST'])
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_hmac(file_data, key):
+    return base64.b64encode(hashlib.sha256(file_data + key).digest()).decode()
+
+@documents_bp.route('/documents')
 @login_required
 def documents():
-    if request.method == 'POST':
-        file = request.files.get('document')
+    documents = Document.query.filter_by(user_id=current_user.id).all()
+    return render_template('documents/documents.html', documents=documents)
 
-        if not file or file.filename == '':
-            flash('No file selected', 'error')
-            return redirect(url_for('documents.documents'))
-
-        # Use AES_KEY from .env
-        try:
-            key_bytes = base64.b64decode(os.getenv('AES_KEY'))
-        except Exception as e:
-            flash('Server configuration error', 'error')
-            return redirect(url_for('documents.documents'))
-
+@documents_bp.route('/upload', methods=['POST'])
+@login_required
+def upload_document():
+    if 'file' not in request.files:
+        flash('No file part', 'error')
+        return redirect(url_for('documents.documents'))
+    file = request.files['file']
+    if file.filename == '':
+        flash('No selected file', 'error')
+        return redirect(url_for('documents.documents'))
+    if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        upload_dir = os.path.join(current_app.root_path, 'Uploads')
-        os.makedirs(upload_dir, exist_ok=True)
-        file_path = os.path.join(upload_dir, filename)
-
-        # Save file
-        file.save(file_path)
-
-        # Calculate file size
-        file_size = os.path.getsize(file_path)
-
-        # Get file type (extension without dot)
-        file_type = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
-
-        # Calculate HMAC on plaintext
+        file_data = file.read()
+        key = base64.b64decode(os.getenv('AES_KEY'))
         hmac_key = base64.b64decode(os.getenv('HMAC_KEY'))
-        with open(file_path, 'rb') as f:
-            file_content = f.read()
-            hmac_sha256 = hmac.new(hmac_key, file_content, hashlib.sha256).hexdigest()
-
-        # Encrypt file (mandatory)
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
         try:
-            cipher = AES.new(key_bytes, AES.MODE_EAX)
-            nonce = cipher.nonce
-            ciphertext, tag = cipher.encrypt_and_digest(file_content)
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            iv = get_random_bytes(16)
+            cipher = AES.new(key, AES.MODE_CBC, iv)
+            padded_data = pad(file_data, AES.block_size)
+            encrypted_data = iv + cipher.encrypt(padded_data)
+            hmac = get_hmac(encrypted_data, hmac_key)
             with open(file_path, 'wb') as f:
-                f.write(nonce + tag + ciphertext)
-        except Exception as e:
-            flash(f'Encryption failed: {str(e)}', 'error')
-            return redirect(url_for('documents.documents'))
-
-        # Create Document
-        document = Document(
-            name=filename,
-            HMAC_SHA256=hmac_sha256,
-            path=file_path,
-            type=file_type,
-            size=file_size,
-            modified=datetime.utcnow(),
-            has_secret=True,
-            user_id=current_user.id
-        )
-
-        try:
+                f.write(encrypted_data)
+            document = Document(
+                name=filename,
+                HMAC_SHA256=hmac,
+                path=file_path,
+                type=filename.rsplit('.', 1)[1].lower(),
+                size=len(file_data),
+                has_secret=True,
+                user_id=current_user.id
+            )
             db.session.add(document)
             db.session.commit()
             db.session.add(AuditLog(
                 user_id=current_user.id,
                 action='upload_document',
-                details=f"Uploaded document: {filename} (encrypted)",
+                details=f"Uploaded document {filename}",
                 ip_address=request.remote_addr
             ))
             db.session.commit()
-            flash('Document uploaded successfully', 'success')
+            flash('File uploaded successfully', 'success')
         except Exception as e:
             db.session.rollback()
-            flash(f'Error uploading document: {str(e)}', 'error')
-
-        return redirect(url_for('documents.documents'))
-
-    # GET: List documents
-    documents = Document.query.filter_by(user_id=current_user.id).all()
-    return render_template('documents/documents.html', documents=documents)
+            db.session.add(AuditLog(
+                user_id=current_user.id,
+                action='upload_document_failed',
+                details=f"Failed to upload document {filename}: {str(e)}",
+                ip_address=request.remote_addr
+            ))
+            db.session.commit()
+            flash(f'Failed to upload file: {str(e)}', 'error')
+    else:
+        flash('File type not allowed', 'error')
+    return redirect(url_for('documents.documents'))
 
 @documents_bp.route('/download/<int:id>')
 @login_required
-def download(id):
+def download_document(id):
     document = Document.query.get_or_404(id)
     if document.user_id != current_user.id and current_user.role != 'Admin':
-        db.session.add(AuditLog(
-            user_id=current_user.id,
-            action='unauthorized_document_access',
-            details=f"Attempted to download document ID {id} owned by user {document.user_id}",
-            ip_address=request.remote_addr
-        ))
-        db.session.commit()
-        flash('Unauthorized access to document', 'error')
+        flash('Access denied', 'error')
         return redirect(url_for('documents.documents'))
-
-    # Handle legacy non-encrypted files
-    if not document.has_secret:
-        try:
-            db.session.add(AuditLog(
-                user_id=current_user.id,
-                action='download_document',
-                details=f"Downloaded document: {document.name} (non-encrypted)",
-                ip_address=request.remote_addr
-            ))
-            db.session.commit()
-            return send_file(document.path, download_name=document.name, as_attachment=True)
-        except FileNotFoundError:
-            flash(f'Document file not found: {document.name}', 'error')
-            return redirect(url_for('documents.documents'))
-        except OSError as e:
-            flash(f'Error reading file: {str(e)}', 'error')
-            return redirect(url_for('documents.documents'))
-
-    # Encrypted file: redirect to decrypt
-    return redirect(url_for('documents.decrypt', id=id))
-
-@documents_bp.route('/decrypt/<int:id>', methods=['GET', 'POST'])
-@login_required
-def decrypt(id):
-    document = Document.query.get_or_404(id)
-    if document.user_id != current_user.id and current_user.role != 'Admin':
-        db.session.add(AuditLog(
-            user_id=current_user.id,
-            action='unauthorized_document_access',
-            details=f"Attempted to decrypt document ID {id} owned by user {document.user_id}",
-            ip_address=request.remote_addr
-        ))
-        db.session.commit()
-        flash('Unauthorized access to document', 'error')
-        return redirect(url_for('documents.documents'))
-
-    # Read file
     try:
+        if not os.path.exists(document.path):
+            raise FileNotFoundError(f"File not found at {document.path}")
+        key = base64.b64decode(os.getenv('AES_KEY'))
         with open(document.path, 'rb') as f:
-            file_content = f.read()
-    except FileNotFoundError:
-        flash(f'Document file not found: {document.name}', 'error')
-        return redirect(url_for('documents.documents'))
-    except OSError as e:
-        flash(f'Error reading file: {str(e)}', 'error')
-        return redirect(url_for('documents.documents'))
-
-    # Use AES_KEY
-    try:
-        decrypt_key = base64.b64decode(os.getenv('AES_KEY'))
+            file_data = f.read()
+        hmac_key = base64.b64decode(os.getenv('HMAC_KEY'))
+        stored_hmac = document.HMAC_SHA256
+        computed_hmac = get_hmac(file_data, hmac_key)
+        if stored_hmac != computed_hmac:
+            raise ValueError('HMAC verification failed')
+        if len(file_data) < 16:
+            raise ValueError('File data too short for decryption')
+        cipher = AES.new(key, AES.MODE_CBC, file_data[:16])
+        try:
+            decrypted_data = unpad(cipher.decrypt(file_data[16:]), AES.block_size)
+        except ValueError as e:
+            raise ValueError(f"Decryption failed: {str(e)}")
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        temp_path = os.path.join(UPLOAD_FOLDER, f"temp_{document.name}")
+        with open(temp_path, 'wb') as f:
+            f.write(decrypted_data)
+        db.session.add(AuditLog(
+            user_id=current_user.id,
+            action='download_document',
+            details=f"Downloaded document {document.name} (ID: {id})",
+            ip_address=request.remote_addr
+        ))
+        db.session.commit()
+        return send_file(temp_path, as_attachment=True, download_name=document.name)
     except Exception as e:
-        flash('Server configuration error', 'error')
+        db.session.rollback()
+        db.session.add(AuditLog(
+            user_id=current_user.id,
+            action='download_document_failed',
+            details=f"Failed to download document {document.name} (ID: {id}): {str(e)}",
+            ip_address=request.remote_addr
+        ))
+        db.session.commit()
+        flash(f'Failed to download document: {str(e)}', 'error')
         return redirect(url_for('documents.documents'))
+    finally:
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except:
+                pass
 
-    hmac_key = base64.b64decode(os.getenv('HMAC_KEY'))
-
-    # Validate file content length
-    if len(file_content) < 32:
-        flash('Invalid file format: File too small', 'error')
+@documents_bp.route('/documents/preview/<int:id>')
+@login_required
+def preview_document(id):
+    document = Document.query.get_or_404(id)
+    if document.user_id != current_user.id and current_user.role != 'Admin':
+        flash('Access denied', 'error')
         return redirect(url_for('documents.documents'))
-
-    # Decrypt
     try:
-        nonce, tag, ciphertext = file_content[:16], file_content[16:32], file_content[32:]
-        cipher = AES.new(decrypt_key, AES.MODE_EAX, nonce=nonce)
-        decrypted_data = cipher.decrypt_and_verify(ciphertext, tag)
-    except ValueError as e:
-        flash(f'Decryption failed: {str(e)}', 'error')
+        if not os.path.exists(document.path):
+            raise FileNotFoundError(f"File not found at {document.path}")
+        if document.type.lower() == 'pdf':
+            key = base64.b64decode(os.getenv('AES_KEY'))
+            with open(document.path, 'rb') as f:
+                file_data = f.read()
+            hmac_key = base64.b64decode(os.getenv('HMAC_KEY'))
+            stored_hmac = document.HMAC_SHA256
+            computed_hmac = get_hmac(file_data, hmac_key)
+            if stored_hmac != computed_hmac:
+                raise ValueError('HMAC verification failed')
+            if len(file_data) < 16:
+                raise ValueError('File data too short for decryption')
+            cipher = AES.new(key, AES.MODE_CBC, file_data[:16])
+            try:
+                decrypted_data = unpad(cipher.decrypt(file_data[16:]), AES.block_size)
+            except ValueError as e:
+                raise ValueError(f"Decryption failed: {str(e)}")
+            os.makedirs(STATIC_UPLOAD_FOLDER, exist_ok=True)
+            temp_filename = f"preview_{id}_{document.name}"
+            static_path = os.path.join(STATIC_UPLOAD_FOLDER, temp_filename)
+            with open(static_path, 'wb') as f:
+                f.write(decrypted_data)
+            # preview_url = url_for('static', filename=f'uploads/{temp_filename}')
+            preview_url = url_for('static', filename=f'uploads\\Book_Store_Management_System.pdf')
+        else:
+            preview_url = None
+        db.session.add(AuditLog(
+            user_id=current_user.id,
+            action='preview_document',
+            details=f"Previewed document {document.name} (ID: {id})",
+            ip_address=request.remote_addr
+        ))
+        db.session.commit()
+        return render_template('documents/preview.html', name=document.name, preview_url=preview_url, document_id=id)
+    except Exception as e:
+        db.session.add(AuditLog(
+            user_id=current_user.id,
+            action='preview_document_failed',
+            details=f"Failed to preview document {document.name} (ID: {id}): {str(e)}",
+            ip_address=request.remote_addr
+        ))
+        db.session.commit()
+        flash(f'Failed to preview document: {str(e)}', 'error')
         return redirect(url_for('documents.documents'))
-
-    # Verify HMAC
-    new_hmac = hmac.new(hmac_key, decrypted_data, hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(new_hmac, document.HMAC_SHA256):
-        flash('Integrity check failed: Document may have been tampered with', 'error')
-        return redirect(url_for('documents.documents'))
-
-    db.session.add(AuditLog(
-        user_id=current_user.id,
-        action='download_document',
-        details=f"Downloaded document: {document.name} (decrypted)",
-        ip_address=request.remote_addr
-    ))
-    db.session.commit()
-
-    return send_file(
-        io.BytesIO(decrypted_data),
-        download_name=document.name,
-        as_attachment=True
-    )
 
 @documents_bp.route('/delete/<int:id>', methods=['POST'])
 @login_required
-def delete(id):
+def delete_document(id):
     document = Document.query.get_or_404(id)
     if document.user_id != current_user.id and current_user.role != 'Admin':
-        db.session.add(AuditLog(
-            user_id=current_user.id,
-            action='unauthorized_document_access',
-            details=f"Attempted to delete document ID {id} owned by user {document.user_id}",
-            ip_address=request.remote_addr
-        ))
-        db.session.commit()
-        flash('Unauthorized access to document', 'error')
+        flash('Access denied', 'error')
         return redirect(url_for('documents.documents'))
-
     try:
-        # Delete file from filesystem
         if os.path.exists(document.path):
             os.remove(document.path)
-        # Log deletion
+        temp_filename = f"preview_{id}_{document.name}"
+        static_path = os.path.join(STATIC_UPLOAD_FOLDER, temp_filename)
+        if os.path.exists(static_path):
+            os.remove(static_path)
+        db.session.delete(document)
+        db.session.commit()
         db.session.add(AuditLog(
             user_id=current_user.id,
             action='delete_document',
-            details=f"Deleted document: {document.name} (ID: {document.id})",
+            details=f"Deleted document {document.name} (ID: {id})",
             ip_address=request.remote_addr
         ))
-        # Delete document from database
-        db.session.delete(document)
         db.session.commit()
         flash('Document deleted successfully', 'success')
     except Exception as e:
@@ -236,10 +225,9 @@ def delete(id):
         db.session.add(AuditLog(
             user_id=current_user.id,
             action='delete_document_failed',
-            details=f"Failed to delete document: {document.name} (ID: {document.id}): {str(e)}",
+            details=f"Failed to delete document {document.name} (ID: {id}): {str(e)}",
             ip_address=request.remote_addr
         ))
         db.session.commit()
         flash(f'Failed to delete document: {str(e)}', 'error')
-
     return redirect(url_for('documents.documents'))

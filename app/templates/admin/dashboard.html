@@ -8,8 +8,7 @@
                 <i class="bi bi-upload me-2"></i>Upload Document
             </button>
             {% if current_user.role == 'Admin' %}
-                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#settingsModal">
-                    <i class="bi bi-gear me-2"></i>Settings
+
                 </button>
             {% endif %}
         </div>
@@ -37,7 +36,7 @@
                             <i class="bi bi-file-earmark text-success fs-4"></i>
                         </div>
                         <p class="card-text display-6 mb-3" id="totalDocuments">{{ stats.documents | number_format }}</p>
-                        <a href="{{ url_for('documents.documents') }}" class="btn btn-outline-primary btn-sm">View Documents</a>
+                        <a href="{{ url_for('admin.admin_documents') }}" class="btn btn-outline-primary btn-sm">View Documents</a>
                     </div>
                 </div>
             </div>
