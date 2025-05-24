@@ -12,8 +12,8 @@ from Crypto.Random import get_random_bytes
 from werkzeug.utils import secure_filename
 
 documents_bp = Blueprint('documents', __name__)
-BASE_PATH = r'D:\Learn Flask\Final_DI\SecureDocs'
-UPLOAD_FOLDER = os.path.join(BASE_PATH, 'app', 'Uploads')
+BASE_PATH = r'D:\SecureDoc\SecureDocs'
+UPLOAD_FOLDER = os.path.join(BASE_PATH, 'app', 'uploads')
 STATIC_UPLOAD_FOLDER = os.path.join(BASE_PATH, 'app', 'static', 'uploads')
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx'}
 

@@ -11,6 +11,7 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(20), default='User')
     github_id = db.Column(db.String(100), unique=True, nullable=True)
     profile_image = db.Column(db.String(256), nullable=True)
+    totp_secret = db.Column(db.String(32), nullable=True)
     documents = db.relationship('Document', backref='user', lazy='dynamic')
 
     def set_password(self, password):

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, Response
 from flask_login import login_required, current_user
 from app import db
 from app.models.user import User
@@ -7,8 +7,16 @@ from app.models.audit_log import AuditLog
 from functools import wraps
 from sqlalchemy import func
 import os
+import logging
+import csv
+from io import StringIO
+from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__)
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 def admin_required(f):
     @wraps(f)
@@ -19,22 +27,85 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
 @admin_bp.route('/dashboard')
 @login_required
 @admin_required
 def dashboard():
+    # Fetch all documents to debug sizes
+    documents = Document.query.all()
+    total_size = 0
+    for doc in documents:
+        if doc.size is not None and doc.size > 0:
+            total_size += doc.size
+            logger.debug(f"Document {doc.id} ({doc.name}): size = {doc.size} bytes")
+        else:
+            logger.debug(f"Document {doc.id} ({doc.name}): size = {doc.size or 'None'}")
+
+    # Alternative query for validation
+    query_size = db.session.query(func.sum(Document.size)).scalar()
+    logger.debug(f"Total storage size from query: {query_size}")
+    logger.debug(f"Total storage size from manual sum: {total_size}")
+
     stats = {
         'users': User.query.filter_by(role="User").count(),
         'documents': Document.query.count(),
         'logs': AuditLog.query.count(),
-        'storage': db.session.query(func.sum(Document.size)).scalar() or 0,
+        'storage': total_size if total_size is not None else 0,
         'recent_activity': AuditLog.query.join(User, User.id == AuditLog.user_id).order_by(AuditLog.timestamp.desc()).limit(5).all(),
         'recent_documents': Document.query.order_by(Document.modified.desc()).limit(5).all()
     }
     for activity in stats['recent_activity']:
-        activity.user_name = User.query.get(activity.user_id).username
+        user = User.query.get(activity.user_id)
+        activity.user_name = user.username if user else 'Unknown'
         activity.status = 'success'  # Adjust based on AuditLog data
     return render_template('admin/dashboard.html', stats=stats)
+
+
+
+
+@admin_bp.route('/download_logs', methods=['GET'])
+@login_required
+@admin_required
+def download_logs():
+    # Query all logs
+    logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).all()
+
+    # Create CSV in memory
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Timestamp', 'User ID', 'Username', 'Action', 'Details', 'IP Address'])
+
+    for log in logs:
+        user = User.query.get(log.user_id)
+        username = user.username if user else 'Unknown'
+        writer.writerow([
+            log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if log.timestamp else 'N/A',
+            log.user_id,
+            username,
+            log.action,
+            log.details,
+            log.ip_address
+        ])
+
+    # Log the download action
+    db.session.add(AuditLog(
+        user_id=current_user.id,
+        action='download_logs',
+        details='Downloaded all system logs as CSV',
+        ip_address=request.remote_addr
+    ))
+    db.session.commit()
+
+    # Prepare response
+    output.seek(0)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=system_logs_{timestamp}.csv'}
+    )
+
 
 @admin_bp.route('/users', methods=['GET'])
 @login_required
@@ -96,13 +167,11 @@ def delete_user(id):
         return redirect(url_for('admin.admin_users'))
 
     try:
-        # Delete user's documents
         documents = Document.query.filter_by(user_id=user.id).all()
         for doc in documents:
             if os.path.exists(doc.path):
                 os.remove(doc.path)
             db.session.delete(doc)
-        # Delete user
         db.session.delete(user)
         db.session.commit()
         db.session.add(AuditLog(
@@ -137,7 +206,6 @@ def admin_logs():
 @login_required
 @admin_required
 def admin_documents():
-    # documents = Document.query.join(User, User.id == Document.user_id ).order_by(Document.modified.desc()).all()
     documents = Document.query.join(User, User.id == Document.user_id).filter(User.role == 'User').order_by(Document.modified.desc()).all()
     return render_template('admin/documents.html', documents=documents)
 
@@ -147,17 +215,14 @@ def admin_documents():
 def delete_document(id):
     document = Document.query.get_or_404(id)
     try:
-        # Delete file from filesystem
         if os.path.exists(document.path):
             os.remove(document.path)
-        # Log deletion
         db.session.add(AuditLog(
             user_id=current_user.id,
             action='delete_document',
             details=f"Admin deleted document {document.name} (ID: {document.id})",
             ip_address=request.remote_addr
         ))
-        # Delete document from database
         db.session.delete(document)
         db.session.commit()
         flash('Document deleted successfully', 'success')

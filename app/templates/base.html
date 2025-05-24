@@ -7,6 +7,60 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .sidebar {
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        .profile-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem 0;
+            margin-bottom: 1.5rem;
+        }
+        .profile-img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid transparent;
+            background: linear-gradient(45deg, #ffd700, #ff8c00) border-box;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        .initials-avatar {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background-color: #007bff;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            border: 3px solid transparent;
+            background: linear-gradient(45deg, #ffd700, #ff8c00) border-box;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        .username-text {
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+        .nav-link {
+            color: #333;
+            padding: 0.75rem 1.5rem;
+        }
+        .nav-link:hover {
+            background-color: #e9ecef;
+            border-radius: 0.25rem;
+        }
+        .nav-link.text-danger:hover {
+            background-color: #f8d7da;
+        }
+    </style>
 </head>
 <body>
     <div class="container-fluid">
@@ -14,11 +68,23 @@
             <!-- Sidebar -->
             <nav class="col-md-2 d-none d-md-block sidebar p-0">
                 <div class="position-sticky pt-3">
-                    <div class="text-center mb-4">
-                        <img src="{{ current_user.profile_image if current_user.is_authenticated and current_user.profile_image else url_for('static', filename='images/default-user.png') }}"
-                             class="profile-img mb-2" alt="Profile">
-                        <div><strong>{{ current_user.username | e if current_user.is_authenticated else 'Guest' }}</strong></div>
-                        <small class="text-muted">{{ 'Admin' if current_user.is_authenticated and current_user.role == 'Admin' else 'User' }}</small>
+                    <div class="profile-container">
+                        {% if current_user.is_authenticated %}
+                            {% if current_user.profile_image %}
+                                <img src="{{ current_user.profile_image }}"
+                                     class="profile-img" alt="Profile">
+                            {% else %}
+                                <div class="initials-avatar">
+                                    {{ current_user.username[:2] | e }}
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="initials-avatar">GU</div>
+                        {% endif %}
+                        <div class="username-text">
+                            <strong>{{ current_user.username | e if current_user.is_authenticated else 'Guest' }}</strong><br>
+                            <small class="text-muted">{{ 'Admin' if current_user.is_authenticated and current_user.role == 'Admin' else 'User' }}</small>
+                        </div>
                     </div>
                     <ul class="nav flex-column">
                         {% if current_user.is_authenticated and current_user.role == 'Admin' %}
@@ -56,7 +122,7 @@
                                 {% set admin_documents_url = 'admin.admin_documents' | safe_url_for %}
                                 {% if admin_documents_url %}
                                     <a class="nav-link" href="{{ admin_documents_url }}">
-                                        <i class="bi bi-file-earmark me-2"></i>Document Management
+                                        <i class="bi bi-file-earmark me-2"></i>Doc Management
                                     </a>
                                 {% else %}
                                     <span class="nav-link text-muted">Document Management (Unavailable)</span>
@@ -64,7 +130,7 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ url_for('documents.documents') }}">
-                                    <i class="bi bi-file-earmark me-2"></i>All Documents
+                                    <i class="bi bi-file-earmark me-2"></i>My Documents
                                 </a>
                             </li>
                         {% elif current_user.is_authenticated %}

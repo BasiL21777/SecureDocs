@@ -5,6 +5,7 @@ from flask_migrate import Migrate
 from authlib.integrations.flask_client import OAuth
 import os
 from dotenv import load_dotenv
+from werkzeug.routing import BuildError
 
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -14,9 +15,12 @@ migrate = Migrate()
 def create_app():
     app = Flask(__name__)
     load_dotenv()
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+mysqlconnector://root:@localhost/secure_docs'
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', os.urandom(24).hex())
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+mysqlconnector://{os.getenv("MYSQL_USER")}:{os.getenv("MYSQL_PASSWORD")}@localhost/secure_docs'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
     db.init_app(app)
     login_manager.init_app(app)
@@ -27,23 +31,35 @@ def create_app():
     # Jinja filters
     @app.template_filter('number_format')
     def number_format(value):
-        if value is None or not isinstance(value, (int, float)):
+        try:
+            if value is None or not isinstance(value, (int, float)):
+                return "0"
+            return f"{int(value):,}"
+        except (ValueError, TypeError):
             return "0"
-        return f"{int(value):,}"
 
     @app.template_filter('format_bytes')
     def format_bytes(bytes):
-        if bytes is None or not isinstance(bytes, (int, float)):
+        try:
+            if bytes is None or not isinstance(bytes, (int, float)) or bytes <= 0:
+                return "0 B"
+            bytes = float(bytes)
+            for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+                if bytes < 1024:
+                    return f"{bytes:.2f} {unit}".rstrip('0').rstrip('.')
+                bytes /= 1024
+            return f"{bytes:.2f} PB".rstrip('0').rstrip('.')
+        except (ValueError, TypeError):
             return "0 B"
-        for unit in ['B', 'KB', 'MB', 'GB']:
-            if bytes < 1024:
-                return f"{bytes:.2f} {unit}"
-            bytes /= 1024
-        return f"{bytes:.2f} TB"
 
     @app.template_filter('datetime_format')
     def datetime_format(value):
-        return value.strftime('%Y-%m-%d %H:%M:%S') if value else 'N/A'
+        try:
+            if value is None:
+                return "N/A"
+            return value.strftime('%Y-%m-%d %H:%M:%S')
+        except (AttributeError, ValueError):
+            return "N/A"
 
     @app.template_filter('safe_url_for')
     def safe_url_for(endpoint, **values):

@@ -12,19 +12,36 @@
             {% endfor %}
         {% endif %}
     {% endwith %}
-    <form id="profileForm" class="card p-4" style="max-width: 500px;" action="{{ url_for('user.update_profile') }}" method="post">
-        <div class="mb-3">
-            <label for="username" class="form-label">Username</label>
-            <input type="text" class="form-control" id="username" name="username" value="{{ current_user.username | e }}" required>
+    <div class="card p-4" style="max-width: 500px;">
+        <div class="text-center mb-4">
+            {% if current_user.profile_image %}
+                <img src="{{ current_user.profile_image }}"
+                     class="profile-img mb-2" alt="Profile">
+            {% else %}
+                <div class="initials-avatar mb-2">
+                    {{ current_user.username[:2] | e }}
+                </div>
+            {% endif %}
         </div>
-        <div class="mb-3">
-            <label for="email" class="form-label">Email address</label>
-            <input type="email" class="form-control" id="email" name="email" value="{{ current_user.email | e }}" required>
-        </div>
-        <div class="mb-3">
-            <label for="password" class="form-label">New Password</label>
-            <input type="password" class="form-control" id="password" name="password" placeholder="Leave blank to keep current password">
-        </div>
-        <button type="submit" class="btn btn-primary">Update Profile</button>
-    </form>
+        <form id="profileForm" action="{{ url_for('user.update_profile') }}" method="post" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label for="profile_image" class="form-label">Profile Image</label>
+                <input type="file" class="form-control" id="profile_image" name="profile_image" accept=".jpg,.jpeg,.png,.gif">
+                <small class="form-text text-muted">JPG, JPEG, PNG, or GIF. Max 2MB.</small>
+            </div>
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" name="username" value="{{ current_user.username | e }}" required>
+            </div>
+            <div class="mb-3">
+                <label for="email" class="form-label">Email address</label>
+                <input type="email" class="form-control" id="email" name="email" value="{{ current_user.email | e }}" required>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">New Password</label>
+                <input type="password" class="form-control" id="password" name="password" placeholder="Leave blank to keep current password">
+            </div>
+            <button type="submit" class="btn btn-primary">Update Profile</button>
+        </form>
+    </div>
 {% endblock %}

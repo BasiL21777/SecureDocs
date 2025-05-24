@@ -35,7 +35,7 @@
                         <tr>
                             <td>{{ doc.name | e }}</td>
                             <td>{{ doc.type | e }}</td>
-                            <td>{{ (doc.size / 1024) | round(2) }} KB</td>
+                            <td>{{ (doc.size) | format_bytes }}</td>
                             <td>{{ doc.modified.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                             <td>
                                 <!--

@@ -4,13 +4,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0">Welcome, {{ current_user.username | e }}!</h1>
         <div class="d-flex gap-2">
-            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                <i class="bi bi-upload me-2"></i>Upload Document
-            </button>
-            {% if current_user.role == 'Admin' %}
 
-                </button>
-            {% endif %}
         </div>
     </div>
 
@@ -61,7 +55,7 @@
                         </div>
                         <p class="card-text display-6 mb-3" id="totalStorage">{{ stats.storage | format_bytes }}</p>
                         <div class="progress" style="height: 4px;">
-                            <div class="progress-bar" role="progressbar" style="width: {{stats.storage}}%"></div>
+                            <div class="progress-bar" role="progressbar" style="width: {{ ((stats.storage ) / (1024 * 1024 * 1024) * 100)}}%"></div>
                         </div>
                     </div>
                 </div>
@@ -127,7 +121,7 @@
                         </div>
                         <p class="card-text display-6 mb-3">{{ stats.storage | format_bytes }}</p>
                         <div class="progress" style="height: 4px;">
-                            <div class="progress-bar" role="progressbar" style="width: {{ ((stats.storage | float) / (1024 * 1024 * 1024) * 100) | round(2) | min(100, method='builtins') }}%"></div>
+                            <div class="progress-bar" role="progressbar" style="width: {{ ((stats.storage | float) / (1024 * 1024 * 1024) * 100) | round(2) | min(100) }}%"></div>
                         </div>
                     </div>
                 </div>
@@ -196,8 +190,6 @@
                             <label class="form-label">File</label>
                             <input type="file" class="form-control" name="document" accept=".pdf,.docx,.txt" required>
                         </div>
-                        <div class="mb-3">
-                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -233,7 +225,20 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-
+                    <form id="settingsForm" action="{{ url_for('admin.update_settings') }}" method="post">
+                        <div class="mb-3">
+                            <label for="max_file_size" class="form-label">Max File Size (MB)</label>
+                            <input type="number" class="form-control" id="max_file_size" name="max_file_size" value="10">
+                        </div>
+                        <div class="mb-3">
+                            <label for="allowed_types" class="form-label">Allowed File Types</label>
+                            <input type="text" class="form-control" id="allowed_types" name="allowed_types" value=".pdf,.docx,.txt">
+                        </div>
+                        <div class="mb-3">
+                            <label for="storage_limit" class="form-label">Storage Limit (GB)</label>
+                            <input type="number" class="form-control" id="storage_limit" name="storage_limit" value="1">
+                        </div>
+                    </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
