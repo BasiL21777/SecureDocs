@@ -8,7 +8,8 @@ CREATE TABLE users (
     password_hash VARCHAR(256),
     role VARCHAR(20) DEFAULT 'User',
     github_id VARCHAR(100) UNIQUE,
-    profile_image VARCHAR(256)
+    profile_image VARCHAR(256),
+    totp_secret VARCHAR(32) DEFAULT NULL
 );
 
 CREATE TABLE documents (
